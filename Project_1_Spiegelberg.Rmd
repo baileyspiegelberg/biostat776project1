@@ -1,0 +1,464 @@
+---
+title: "Project 1"
+author: "Bailey Spiegelberg"
+date: "2024-09-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r}
+#Load packages
+library("tidyverse")
+library("here")
+```
+```{r}
+#tests if a directory named "data" exists locally
+if (!dir.exists(here("data"))) {
+    dir.create(here("data"))
+}
+
+# saves data only once (not each time you knit a R Markdown)
+if (!file.exists(here("data", "chocolate.RDS"))) {
+    url_csv <- "https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-01-18/chocolate.csv"
+    chocolate <- readr::read_csv(url_csv)
+    
+    # save the file to RDS objects
+    saveRDS(chocolate, file = here("data", "chocolate.RDS"))
+}
+```
+```{r}
+chocolate <- readRDS(here("data", "chocolate.RDS"))
+as_tibble(chocolate)
+```
+
+
+```{r}
+glimpse(chocolate)
+```
+## Part1: Explore data
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+1. Make a histogram of the rating scores to visualize the overall distribution of scores. Change the number of bins from the default to 10, 15, 20, and 25. Pick on the one that you think looks the best. Explain what the difference is when you change the number of bins and explain why you picked the one you did.
+
+Changing the the number of bins affects how many bars in the histogram will be present. For example, with the default (30 bins) there are 12 bars but with (bins = 10), there are 9 bars. I chose (bins = 15) as I think it gives us the best distribution.
+
+```{r}
+ggplot(chocolate, aes(x=rating)) + geom_histogram()
+ggplot(chocolate, aes(x=rating)) + geom_histogram(bins = 10)
+ggplot(chocolate, aes(x=rating)) + geom_histogram(bins = 15)
+ggplot(chocolate, aes(x=rating)) + geom_histogram(bins = 20)
+ggplot(chocolate, aes(x=rating)) + geom_histogram(bins = 25)
+
+```
+
+
+```{r}
+library(ThemePark)
+
+ggplot(chocolate, aes(x=rating)) +
+  geom_histogram (bins = 15) +
+  labs(title = "Rating Distribution", x = "Rating", y = "Count") +
+  theme_dune()
+```
+
+2. Consider the countries where the beans originated from. How many reviews come from each country of bean origin?
+```{r}
+countrybeanreview = chocolate %>% 
+                    group_by(country_of_bean_origin) %>%
+                    summarise (n())
+print(countrybeanreview)
+                                      
+```
+
+3. What is average rating scores from reviews of chocolate bars that have Ecuador as country_of_bean_origin in this dataset? For this same set of reviews, also calculate (1) the total number of reviews and (2) the standard deviation of the rating scores. Your answer should be a new data frame with these three summary statistics in three columns. Label the name of these columns mean, sd, and total.
+
+
+```{r}
+Ecuador = chocolate %>%
+          group_by(country_of_bean_origin =="Ecuador") %>%
+          summarise (mean = mean(rating), total = n(), sd = sd(rating))
+
+print (Ecuador)
+
+```
+
+4. Which company (name) makes the best chocolate (or has the highest ratings on average) with beans from Ecuador?
+
+The companies with the highest ratings are Amano, Benoit Nihant, Beschle, Domori, Durci, Pacari, and The Smooth Chocolator 
+
+```{r}
+bestcompany = chocolate %>%
+              filter(country_of_bean_origin =="Ecuador" & rating == 4) %>%
+              group_by(company_manufacturer)
+          
+
+print (bestcompany)
+
+```
+
+
+
+5. Calculate the average rating across all country of origins for beans. Which top 3 countries (for bean origin) have the highest ratings on average?
+
+Top countries with highest average ratings are Tobago, China and Sao Tome & Principe.
+
+```{r}
+countryaverage = chocolate %>%
+          group_by(country_of_bean_origin) %>%
+          summarise (mean = mean(rating)) %>%
+          arrange(desc(mean)) 
+
+print (countryaverage)
+
+```
+6. Following up on the previous problem, now remove any countries of bean origins that have less than 10 chocolate bar reviews. Now, which top 3 countries have the highest ratings on average?
+
+Now top countries with highest average ratings are Solomon Islands, Congo and Cuba.
+
+
+```{r}
+morethan10 = chocolate %>%
+          group_by(country_of_bean_origin) %>%
+          filter(n()>=10) %>%
+          summarise (mean = mean(rating)) %>%
+          arrange(desc(mean)) 
+          
+          
+print (morethan10)
+            
+```
+7. For this last part, let’s explore the relationship between percent chocolate and ratings.
+
+```{r}
+library(lubridate)
+library(tidyr)
+```
+
+
+```{r}
+#7.1 Identify the countries of bean origin with at least 50 reviews. Remove reviews from countries are not in this list.
+
+atleast50 = chocolate %>%
+          group_by(country_of_bean_origin) %>%
+          summarise(reviews = n()) %>%
+          filter(reviews >=50)
+
+
+  
+  print (atleast50)
+```
+
+```{r}
+#7.2 Using the variable describing the chocolate percentage for each review, create a new column that groups chocolate percentages into one of four groups: (i) <60%, (ii) >=60 to <70%, (iii) >=70 to <90%, and (iii) >=90%
+
+atleast50 = chocolate %>%
+          group_by(country_of_bean_origin) %>%
+  mutate(cocoa_percent_group = case_when(
+            cocoa_percent < 60 ~ "i",
+            cocoa_percent >= 60 & cocoa_percent < 70 ~ "ii",
+            cocoa_percent >= 70 & cocoa_percent < 90 ~ "iii",
+            cocoa_percent >= 90 ~ "iv" )) %>%
+            arrange(cocoa_percent_group) %>%
+          summarise(reviews = n(), cocoa_percent_group = cocoa_percent_group ) %>%
+          filter(reviews >=50) 
+
+
+print(atleast50)
+
+```
+```{r}
+#3. Using the new column described in #2, re-order the factor levels (if needed) to be starting with the smallest percentage group and increasing to the largest percentage group
+
+atleast50 = chocolate %>%
+          group_by(country_of_bean_origin) %>%
+  mutate(cocoa_percent_group = case_when(
+            cocoa_percent < 60 ~ "i",
+            cocoa_percent >= 60 & cocoa_percent < 70 ~ "ii",
+            cocoa_percent >= 70 & cocoa_percent < 90 ~ "iii",
+            cocoa_percent >= 90 ~ "iv" )) %>%
+          summarise(reviews = n(), cocoa_percent_group = cocoa_percent_group ) %>%
+          filter(reviews >=50) %>%
+          arrange(cocoa_percent_group)
+
+
+print(atleast50)
+```
+
+```{r}
+#7.4 For each country, make a set of four side-by-side boxplots plotting the groups on the x-axis and the ratings on the y-axis. These plots should be faceted by country.
+
+g = chocolate %>%
+         group_by(country_of_bean_origin) %>%
+           mutate(cocoa_percent_group = case_when(
+            cocoa_percent < 60 ~ "i",
+            cocoa_percent >= 60 & cocoa_percent < 70 ~ "ii",
+            cocoa_percent >= 70 & cocoa_percent < 90 ~ "iii",
+            cocoa_percent >= 90 ~ "iv" )) %>%
+          reframe(reviews = n(), cocoa_percent_group = cocoa_percent_group, rating = rating ) %>%
+          filter(reviews >=50) %>%
+          ggplot(aes(x = cocoa_percent_group, y = rating)) +
+          geom_boxplot (color = "deeppink") +
+          facet_wrap(~ country_of_bean_origin) +
+          labs(title = "Rating Of Cocoa Percent by Country", x = "cocoa percent group", y = "Rating") +
+          theme_barbie(plot.title = element_text(size=20, hjust = .5))
+
+print (g)
+
+```
+
+
+On average, category ii is barely higher than category iii for highest ratings. Countries are split between category ii and iii on being the highest rated.
+
+#Part 2: Join two datasets together
+
+```{r}
+library(gapminder)
+head(gapminder)
+```
+```{r}
+#2.1 Use this dataset it to create a new column called continent in our chocolate dataset1 that contains the continent name for each review where the country of bean origin is.
+
+chocolate =readRDS(here("data", "chocolate.RDS"))
+
+Chocolatewithcontinents = right_join(chocolate, gapminder, 
+                                     by = c("country_of_bean_origin" = "country"), 
+                                     relationship = "many-to-many")
+
+print(Chocolatewithcontinents)
+```
+```{r}
+#2.2 Only keep reviews that have reviews from countries of bean origin with at least 10 reviews.
+
+morethan10 = Chocolatewithcontinents %>%
+          group_by(country_of_bean_origin) %>%
+          summarise (reviews = n()) %>%
+          filter(n()>=10) %>%
+          arrange(desc(n()))
+          
+          
+print (morethan10)
+```
+```{r}
+#2.3 Also, remove the country of bean origin named "Blend".
+Chocolatewithcontinents = Chocolatewithcontinents %>%
+                          filter(country_of_bean_origin!="Blend")
+
+print(Chocolatewithcontinents)
+
+```
+
+
+```{r}
+NAcontinents = Chocolatewithcontinents %>%
+               filter(continent = NA)
+
+print (NAcontinents)
+
+```
+
+```{r}
+violin = ggplot(Chocolatewithcontinents, aes(x = continent, y = rating)) +
+         geom_violin() +
+         labs (x = "Continents", y = "Ratings")
+
+print (violin)
+```
+
+
+
+#Part 3 Convert wide data into long data
+
+```{r}
+chocolate =readRDS(here("data", "chocolate.RDS"))
+
+```
+
+```{r}
+#3.1 Create a new set of columns titled beans, sugar, cocoa_butter, vanilla, letchin, and salt that contain a 1 or 0 representing whether or not that review for the chocolate bar contained that ingredient (1) or not (0).
+
+ingredients_chocolate = chocolate %>%
+                select(ingredients) %>%
+                mutate(
+                  beans = as.integer(grepl("B", ingredients)), 
+                  sugar = as.integer(grepl("S", ingredients)), 
+                  cocoa_butter = as.integer(grepl ("C", ingredients)), 
+                  vanilla = as.integer(grepl("V", ingredients)),
+                  letchin = as.integer(grepl("L", ingredients)),
+                  salt = as.integer(grepl("SA", ingredients)),
+                     )
+
+print(ingredients_chocolate)
+```
+```{r}
+#3.2 Create a new set of columns titled char_cocoa, char_sweet, char_nutty, char_creamy, char_roasty, char_earthy that contain a 1 or 0 representing whether or not that the most memorable characteristic for the chocolate bar had that word (1) or not (0).
+
+new_chocolate = chocolate %>%
+                select(ingredients, most_memorable_characteristics) %>%
+                mutate(
+                char_cocoa = as.integer(grepl("cocoa", most_memorable_characteristics)), 
+                char_sweet = as.integer(grepl("sweet", most_memorable_characteristics)), 
+                char_nutty = as.integer(grepl ("nutty", most_memorable_characteristics)), 
+                char_creamy = as.integer(grepl("creamy", most_memorable_characteristics)),
+                char_roasty = as.integer(grepl("roasty", most_memorable_characteristics)),
+                char_earthy = as.integer(grepl("earthy", most_memorable_characteristics)),
+                 )
+
+print(new_chocolate)
+
+
+```
+
+```{r}
+
+all_chocolate = chocolate %>%
+                select(ingredients, most_memorable_characteristics, review_date) %>%
+                mutate(
+                  beans = as.integer(grepl("B", ingredients)), 
+                  sugar = as.integer(grepl("S", ingredients)), 
+                  cocoa_butter = as.integer(grepl ("C", ingredients)), 
+                  vanilla = as.integer(grepl("V", ingredients)),
+                  letchin = as.integer(grepl("L", ingredients)),
+                  salt = as.integer(grepl("SA", ingredients)),
+                  char_cocoa = as.integer(grepl("cocoa", most_memorable_characteristics)), 
+                  char_sweet = as.integer(grepl("sweet", most_memorable_characteristics)), 
+                  char_nutty = as.integer(grepl ("nutty", most_memorable_characteristics)), 
+                  char_creamy = as.integer(grepl("creamy", most_memorable_characteristics)),
+                  char_roasty = as.integer(grepl("roasty", most_memorable_characteristics)),
+                  char_earthy = as.integer(grepl("earthy", most_memorable_characteristics)),
+                     )
+
+print (all_chocolate)
+```
+
+```{r}
+#3.3 For each year (i.e. review_date), calculate the mean value in each new column you created across all reviews for that year.
+
+mean_value = all_chocolate %>%
+                group_by(review_date) %>%
+                summarise(
+                  mean_beans = mean(beans, na.rm = TRUE), 
+                  mean_sugar = mean(sugar, na.rm = TRUE), 
+                  mean_cocoa_butter = mean(cocoa_butter, na.rm = TRUE), 
+                  mean_vanilla = mean(vanilla, na.rm = TRUE),
+                  mean_letchin = mean(letchin, na.rm = TRUE),
+                  mean_salt = mean(salt, na.rm = TRUE),
+                  mean_char_cocoa = mean(char_cocoa, na.rm = TRUE), 
+                  mean_char_sweet = mean(char_sweet, na.rm = TRUE), 
+                  mean_char_nutty = mean(char_nutty, na.rm = TRUE), 
+                  mean_char_creamy = mean(char_creamy, na.rm = TRUE),
+                  mean_char_roasty = mean(char_roasty, na.rm = TRUE),
+                  mean_char_earthy = mean(char_earthy, na.rm = TRUE),
+                 )
+
+str(mean_value)
+
+```
+```{r}
+#3.4 Convert this wide dataset into a long dataset with a new feature and mean_score column.
+
+long_mean = pivot_longer(
+            mean_value, 
+            cols = starts_with("mean_"), 
+            names_to = "features", 
+            values_to = "mean_score"
+            )
+
+print(long_mean)
+```
+
+#Part 4: Data visualization
+
+```{r}
+scatter_plot = long_mean %>%
+               ggplot(aes(x = review_date, y = mean_score)) +
+               geom_point (color = "white") +
+               geom_smooth(color = "gold") +
+               facet_wrap(~features) +
+               labs(title = "Scatter plot of mean scores over time, subsetted by ingredients and characteristics", subtitle =                          "percentage of letchin and vanilla in chocolates have decreased over time, while mention of a cocoa charactistic has increased", caption = "Bailey Spiegelberg",  x = "Time (review date)", y = "mean score") +
+               theme_alien(plot.title = element_text(size=10), 
+                           plot.subtitle = element_text(size=6), 
+                           plot.caption = element_text(size=8))
+
+print (scatter_plot)
+```
+
+
+#Part 5: Make the worst plot you can!
+
+1. I named the x axis poorly, but in the future a good axis label will be important.
+2. I used geom_point, which is not a good way to represent this data, but in the future geom_point could be the appropriate way to 
+   represent data.
+3. I changed the colour of the dots to yellow, which makes it hard to see. But knowing how to change the colour is useful.
+4. I changed the size, shape, and linewidth of my dots, making it really hard to see. But knowing how to do this will help me 
+   make better graphs in the future/.
+5. I changed the theme, which could be captivating in the future.
+6. I changed the x axis font size, so that it is too big and you can't read what it says. 
+   Knowing how to change axis font size is important.
+7. I don't have a title, which is always important. But I know how to add one as seen in part 6.
+
+```{r}
+
+badplot = chocolate %>%
+          ggplot(aes(
+            x = as.factor(review_date),
+            y = rating
+          )) +
+          geom_point(color = "yellow", 
+                     size = .5, 
+                     shape = 11, 
+                     fill = "red", 
+                     linewidth = 10) +
+          theme_asteroid_city(axis.text.x = element_text(size =15))
+
+
+print(badplot)
+  
+
+```
+
+
+#Part 6: Make my plot a better plot!
+
+1. I changed the x and y labels.
+2. I added a title.
+3. I changed the theme.
+4. I changed the  size of x axis font in theme.
+5. I changed the size of font for the title.
+6. I made the graph interactive.
+7. I centered the title of the graph.
+
+```{r}
+chocolate =readRDS(here("data", "chocolate.RDS"))
+library("plotly")
+
+plot = chocolate %>%
+        ggplot(aes(
+         x = as.factor(review_date),
+         y = rating,
+         fill = review_date
+       )) +
+      geom_violin(color = "green") +
+      labs(title = "Ratings over the Years", x = "Review Date", y = "Ratings", fill = "Review Date") +
+      theme_alien(plot.title = element_text(size=16, hjust = .5), 
+                   plot.caption = element_text(size=8), 
+                   axis.text.x = element_text(size =7))
+      
+
+plotly::ggplotly((plot))
+
+```
+
